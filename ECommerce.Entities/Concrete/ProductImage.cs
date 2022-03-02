@@ -15,5 +15,7 @@ namespace ECommerce.Entities.Concrete
         [Required]
         public int ProductId { get; set; }
         public Product Product { get; set; }
+
+
     }
 }

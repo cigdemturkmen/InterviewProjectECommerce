@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace ECommerce.UI.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "1")]
     public class ProductController : BaseController
     {
         private readonly IRepository<Product> _productRepository;
@@ -24,10 +24,10 @@ namespace ECommerce.UI.Controllers
             _categoryRepository = categoryRepository;
         }
 
-        
+        [AllowAnonymous]
         public IActionResult Index(int? id)
         {
-            var products = _productRepository.GetAll(x => x.IsActive, include: x => x.Include(y => y.Category));
+            var products = _productRepository.GetAll(x => x.IsActive, include: x => x.Include(y => y.Category).Include(y => y.ProductImages));
 
             var categories = _categoryRepository.GetAll(x => x.IsActive).Select(x =>
             new CategoryViewModel()
@@ -38,7 +38,7 @@ namespace ECommerce.UI.Controllers
 
             if (id != null)
             {
-                products = _productRepository.GetAll(x => x.IsActive && x.CategoryId == id);
+                products = _productRepository.GetAll(x => x.IsActive && x.CategoryId == id, x => x.Include(y => y.ProductImages).Include(y => y.Category));
             }
 
             var vm = products.Select(x => new ProductViewModel()
@@ -49,29 +49,55 @@ namespace ECommerce.UI.Controllers
                 CategoryId = x.CategoryId,
                 CreatedDate = x.CreatedDate,
                 CategoryName = x.Category.CategoryName,
-                //PictureStr = Convert.ToBase64String(x.Picture),
+                ProductImages = x.ProductImages,
             }).ToList();
 
             ViewBag.Categories = categories;
             return View(vm);
-
         }
 
-        [Authorize(Roles ="1")]
-        public IActionResult List()
+        public IActionResult Detail(int id)
         {
-            var products = _productRepository.GetAll(x => x.IsActive, include: x => x.Include(y => y.Category)).Select(x => new ProductViewModel()
+            var product = _productRepository.Get(x => x.Id == id && x.IsActive, include: x => x.Include(y => y.Category).Include(y => y.ProductImages));
+
+            if (product != null)
+            {
+                var vm = new ProductViewModel()
+                {
+                    Id = product.Id,
+                    ProductName = product.ProductName,
+                    UnitPrice = product.UnitPrice,
+                    CategoryId = product.CategoryId,
+                    CategoryName = product.Category.CategoryName,
+                    ProductImages = product.ProductImages,
+                };
+                return View(vm);
+            }
+
+            TempData["Message"] = "Product cannot be found.";
+            return RedirectToAction("Index");
+        }
+
+        public IActionResult List(int? id)
+        {
+            var products = _productRepository.GetAll(x => x.IsActive, include: x => x.Include(y => y.Category));
+
+            if (id != null)
+            {
+                products = _productRepository.GetAll(x => x.CategoryId == id);
+            }
+            
+            var vm = products.Select(x => new ProductViewModel()
             {
                 Id = x.Id,
                 ProductName = x.ProductName,
                 UnitPrice = x.UnitPrice,
-                ProductImages = x.ProductImages, // ??
-                CategoryId = x.CategoryId, // gerekli mi?
+                ProductImages = x.ProductImages,
+                CategoryId = x.CategoryId,
                 CategoryName = x.Category.CategoryName,
-
             }).ToList();
 
-            return View(products);
+            return View(vm);
         }
 
         public IActionResult Add()
@@ -110,8 +136,8 @@ namespace ECommerce.UI.Controllers
             {
                 ProductName = model.ProductName,
                 UnitPrice = model.UnitPrice,
-                ProductImages = model.ProductImages, 
-                CreatedDate = DateTime.Now, 
+                ProductImages = model.ProductImages,
+                CreatedDate = DateTime.Now,
                 CreatedById = currentUserId,
                 CategoryId = model.CategoryId,
             };
@@ -127,9 +153,10 @@ namespace ECommerce.UI.Controllers
             return View("Add", model);
         }
 
+
         public IActionResult Edit(int id)
         {
-            var product = _productRepository.Get(x => x.Id == id && x.IsActive);
+            var product = _productRepository.Get(x => x.Id == id && x.IsActive, include: x => x.Include(y => y.Category));
 
             if (product != null)
             {
@@ -138,10 +165,18 @@ namespace ECommerce.UI.Controllers
                     Id = product.Id,
                     ProductName = product.ProductName,
                     CategoryId = product.CategoryId,
+                    CategoryName = product.Category.CategoryName,
+                    Category = product.Category,
                     IsActive = product.IsActive,
                     UnitPrice = product.UnitPrice,
                     ProductImages = product.ProductImages,
                 };
+
+                ViewBag.Categories = _categoryRepository.GetAll(x => x.IsActive).Select(x => new SelectListItem()
+                {
+                    Text = x.CategoryName,
+                    Value = x.Id.ToString(),
+                }).ToList();
 
                 return View(vm);
             }
@@ -156,8 +191,20 @@ namespace ECommerce.UI.Controllers
         {
             if (!ModelState.IsValid)
             {
+                ViewBag.Categories = _categoryRepository.GetAll(x => x.IsActive).Select(x => new SelectListItem()
+                {
+                    Text = x.CategoryName,
+                    Value = x.Id.ToString(),
+                }).ToList();
+
                 return View("Edit", model);
             }
+
+            ViewBag.Categories = _categoryRepository.GetAll(x => x.IsActive).Select(x => new SelectListItem()
+            {
+                Text = x.CategoryName,
+                Value = x.Id.ToString(),
+            }).ToList();
 
             var currentUserId = GetCurrentUserId();
 
@@ -184,8 +231,14 @@ namespace ECommerce.UI.Controllers
             return View("Edit", model);
         }
 
+
         public IActionResult Delete(int id)
         {
+            var currentUserId = GetCurrentUserId();
+            var product = _productRepository.Get(x => x.Id == id && x.IsActive);
+            product.UpdatedDate = DateTime.Now;
+            product.UpdatedById = currentUserId;
+
             var result = _productRepository.Delete(id);
 
             TempData["Message"] = result ? "Deleted" : "Delete failed";

@@ -9,7 +9,6 @@ namespace ECommerce.UI.Controllers
 {
     public class HomeController : BaseController
     {
-        
         public IActionResult Index()
         {
             var currentUserRole = GetCurrentUserRole();
@@ -21,9 +20,7 @@ namespace ECommerce.UI.Controllers
                 return View();
             }
 
-           
             return RedirectToAction("Index", "Product");
-
         }
     }
 }

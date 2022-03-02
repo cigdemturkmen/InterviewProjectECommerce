@@ -32,16 +32,12 @@ namespace ECommerce.UI
             services.AddScoped<IRepository<User>, EFRepository<User>>();
             services.AddScoped<IRepository<ProductImage>, EFRepository<ProductImage>>();
 
-            //services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>(); // !!
-
-
             services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie(option =>
                 {
                     option.LoginPath = "/auth/login";
                     option.ExpireTimeSpan = TimeSpan.FromHours(1);
                 });
-
 
             services.AddControllersWithViews();
         }
@@ -69,7 +65,7 @@ namespace ECommerce.UI
                 endpoints.MapControllerRoute(
                        name: "default",
                        pattern: "{controller}/{action}/{id?}",
-                       defaults: new { controller = "Product", action = "List" }
+                       defaults: new { controller = "Home", action = "Index" }
                       );
             });
         }

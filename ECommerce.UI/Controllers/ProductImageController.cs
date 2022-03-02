@@ -21,11 +21,11 @@ namespace ECommerce.UI.Controllers
         private readonly IRepository<Product> _productRepository;
         private readonly IWebHostEnvironment _hostingEnvironment;
 
-        public ProductImageController(IRepository<ProductImage> productImageRepository, IWebHostEnvironment hostingEnvironment, IRepository<Product> productRepository)
+        public ProductImageController(IRepository<ProductImage> productImageRepository, IRepository<Product> productRepository, IWebHostEnvironment hostingEnvironment)
         {
             _productImageRepository = productImageRepository;
-            _hostingEnvironment = hostingEnvironment;
             _productRepository = productRepository;
+            _hostingEnvironment = hostingEnvironment;   
         }
 
         public IActionResult List()
@@ -52,28 +52,30 @@ namespace ECommerce.UI.Controllers
         }
 
         [Authorize(Roles ="1")]
-        public IActionResult Add(int? id)
+        public IActionResult Add(int id)
         {
-            ProImages vm = new ProImages();
-            //ViewBag.Images = new SelectList(_productImageRepository.GetAll().ToList(), "Id", "Product.ProductName");
-            //ViewBag.Products = _productRepository.GetAll(x => x.IsActive).Select(x => new SelectListItem()
-            //{
-            //    Text = x.ProductName,
-            //    Value = x.Id.ToString(),
-            //}).ToList();
-            //if (id != -1)
-            //{
-            //    ViewBag.Product = _productRepository.Get(x => x.Id == id && x.IsActive);
-            //}
+            var product = _productRepository.Get(x => x.Id == id && x.IsActive, include: x => x.Include(y => y.ProductImages));
 
-            return View(vm);
+            if (product != null)
+            {
+                var vm = new ProImages()
+                {
+                    ProductId = product.Id, 
+                    Product = product,
+                };
+
+                return View(vm);
+            }
+
+            TempData["Message"] = "Product cannot be found!";
+            return RedirectToAction("List","Product");
+
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public IActionResult Add(ProImages vm)
-        {
-            //var product = ViewBag.Product;
+        { 
             var currentUserId = GetCurrentUserId();
 
             foreach (var image in vm.Images)
@@ -82,14 +84,15 @@ namespace ECommerce.UI.Controllers
                 var productImage = new ProductImage
                 {
                     Image = stringFileName,
-                    ProductId = vm.Product.Id,
-                    // Product = vm.Product,
+                    ProductId = vm.ProductId,
+                    Product = vm.Product,
+                    CreatedDate = DateTime.Now,
                     CreatedById = currentUserId,
                 };
                 _productImageRepository.Add(productImage);
             }
 
-            return RedirectToAction("List");
+            return RedirectToAction("List", "Product");
         }
 
         private string UploadFile(IFormFile file)

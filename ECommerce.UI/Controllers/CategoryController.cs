@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 
 namespace ECommerce.UI.Controllers
 {
+    [Authorize(Roles="1")]
     public class CategoryController : BaseController
     {
         private readonly IRepository<Category> _categoryRepository;
@@ -20,7 +21,7 @@ namespace ECommerce.UI.Controllers
             _categoryRepository = categoryRepository;
         }
 
-        [AllowAnonymous]
+        
         public IActionResult List()
         {
             var categories = _categoryRepository.GetAll(x => x.IsActive).Select(x =>
